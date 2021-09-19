@@ -186,7 +186,7 @@ def atLeastOne(literals):
         list.append(a)
     return disjoin(list)
 
-
+import itertools
 def atMostOne(literals):
     """
     Given a list of Expr literals, return a single Expr instance in 
@@ -203,15 +203,12 @@ def atMostOne(literals):
     (~C | ~A) & (~C | ~B) & (~C | ~D) & (~D | ~A) & (~D | ~B) & (~D | ~C))
     only will be true if at most one element is true or no elements are true
     """
-    list = []
-    for a in literals:
-        for b in literals:
-            # create a list of the ~a disjoined with the ~ of every other element in the list
-            if a != b:
-                disjunct = disjoin(~a, ~b)
-                list.append(disjunct)
     # conjoin our disjunction permutations
-    return conjoin(list)
+    comb = itertools.combinations(literals, 2)
+    combinations = []
+    for i in comb:
+        combinations.append(disjoin(~i[0], ~i[1]))
+    return conjoin(combinations)
 
 
 def exactlyOne(literals):
@@ -329,12 +326,26 @@ def pacphysics_axioms(t, all_coords, non_outer_wall_coords):
         - Pacman takes exactly one action at timestep t.
     """
     pacphysics_sentences = []
+    pacmanAtAllCoords = []
     for coord in all_coords:
-        if coord not in non_outer_wall_coords:
-            #if it is a wall, then create an expression
-            wall = PropSymbolExpr("Wall", coord)
-            pacphysics_sentences.append(~atWall)
+        x, y = coord
+        pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
+        # if coord is a wall, then pacman is not there at that timestep
+        wallAt = PropSymbolExpr(wall_str, x, y)
+        pacphysics_sentences.append(wallAt >> ~pacmanAt)
+
+    for coord in non_outer_wall_coords:
+        x, y = coord
+        pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
+        pacmanAtAllCoords.append(pacmanAt)
+    pacphysics_sentences.append(exactlyOne(pacmanAtAllCoords))
+
+    moves = []
+    for d in DIRECTIONS:
+        moves.append(PropSymbolExpr(d, t))
+    pacphysics_sentences.append(exactlyOne(moves))
     return conjoin(pacphysics_sentences)
+
 
 
 def check_location_satisfiability(x1_y1, x0_y0, action0, action1, problem):
@@ -360,10 +371,32 @@ def check_location_satisfiability(x1_y1, x0_y0, action0, action1, problem):
     map_sent = [PropSymbolExpr(wall_str, x, y) for x, y in walls_list]
     KB.append(conjoin(map_sent))
 
-    "*** BEGIN YOUR CODE HERE ***"
-    raise NotImplementedError
-    "*** END YOUR CODE HERE ***"
-
+    # model1: x0, y0, action 0, action1 proves pacman is at x1, y1 @ time 1
+    # model2: x0, y0, action0, action1 pacman is not at x1,y1 @ time 1
+    # @ t = 0
+    # add pacmanAt x0, y0 to KB
+    # add pacphysicsAxioms() to KB
+    # add pacman takes action0 to KB
+    # add AllLegalSuccesssorAxioms(t+1, ...) to KB
+    t = 0
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, t))
+    KB.append(pacphysics_axioms(t, all_coords, non_outer_wall_coords))
+    KB.append(PropSymbolExpr(action0, t))
+    KB.append(allLegalSuccessorAxioms(t+1, walls_grid, non_outer_wall_coords))
+    # @ t = 1
+    # add to KB Pacphysics Axioms
+    # add to KB pacman takes action1
+    t = 1
+    KB.append(pacphysics_axioms(t, all_coords, non_outer_wall_coords))
+    KB.append(PropSymbolExpr(action1, t))
+    # to prove a KB entails a query q prove KB & ~q is unsatisfiable or to prove q is false --> KB & q is unsatisfiable
+    # both models we make (model1 and model2) should call findModel, but one on KB & pacmanAt(x1,y1) and the other
+    # on KB & ~ (pacmanAt(x1, y1))
+    q = PropSymbolExpr(pacman_str, x1, y1)
+    conjoinedKB = conjoin(KB)
+    model1 = findModel(conjoin(conjoinedKB, q))
+    model2 = findModel(conjoin(conjoinedKB, ~q))
+    return model2, model1
 
 def positionLogicPlan(problem):
     """
