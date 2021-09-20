@@ -330,8 +330,8 @@ def pacphysics_axioms(t, all_coords, non_outer_wall_coords):
     for coord in all_coords:
         x, y = coord
         pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
-        # if coord is a wall, then pacman is not there at that timestep
         wallAt = PropSymbolExpr(wall_str, x, y)
+        # if coord is a wall, then pacman is not there at that timestep
         pacphysics_sentences.append(wallAt >> ~pacmanAt)
 
     for coord in non_outer_wall_coords:
@@ -390,12 +390,12 @@ def check_location_satisfiability(x1_y1, x0_y0, action0, action1, problem):
     KB.append(pacphysics_axioms(t, all_coords, non_outer_wall_coords))
     KB.append(PropSymbolExpr(action1, t))
     # to prove a KB entails a query q prove KB & ~q is unsatisfiable or to prove q is false --> KB & q is unsatisfiable
-    # both models we make (model1 and model2) should call findModel, but one on KB & pacmanAt(x1,y1) and the other
-    # on KB & ~ (pacmanAt(x1, y1))
-    q = PropSymbolExpr(pacman_str, x1, y1)
+    # both models we make (model1 and model2) should call findModel, but one on KB & pacmanAt(x1, y1, t) and the other
+    # on KB & ~ (pacmanAt(x1, y1, t))
+    q = PropSymbolExpr(pacman_str, x1, y1, t)
     conjoinedKB = conjoin(KB)
-    model1 = findModel(conjoin(conjoinedKB, q))
-    model2 = findModel(conjoin(conjoinedKB, ~q))
+    model1 = findModel(conjoinedKB & q)
+    model2 = findModel(conjoinedKB & ~q)
     return model2, model1
 
 def positionLogicPlan(problem):
@@ -417,10 +417,31 @@ def positionLogicPlan(problem):
     actions = [ 'North', 'South', 'East', 'West' ]
     KB = []
 
-    "*** BEGIN YOUR CODE HERE ***"
-    raise NotImplementedError
-    "*** END YOUR CODE HERE ***"
-
+    # @ t = 0
+    # add pacmanAt x0, y0 to KB
+    t = 0
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, t))
+    # for t in range(50)
+    # add ExactlyOne(PacmanAt(coord in non_wall_coords)) to KB
+    # pass in the current KB (at t) and call findmodel on it
+    #   if there is a satisfying model, return extractActionSequence(model)
+    # add ExactlyOne(pacman takes an action at t) to KB
+    # add pacmanSuccessorStateAxioms() for every coord in non_wall_coords
+    for t in range(50):
+        pacmanPossibleLocations = []
+        moves = []
+        for coord in non_wall_coords:
+            x, y = coord
+            pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
+            pacmanPossibleLocations.append(pacmanAt)
+        KB.append(exactlyOne(pacmanPossibleLocations))
+        model = findModel(conjoin(KB))
+        if logic.pl_true(PropSymbolExpr(pacman_str, xg, yg, t), model):
+            return extractActionSequence(model, actions)
+        for a in actions:
+            moves.append(PropSymbolExpr(a, t))
+        KB.append(exactlyOne(moves))
+        KB.append(pacmanSuccessorStateAxioms(x, y, t, walls))
 
 def foodLogicPlan(problem):
     """
