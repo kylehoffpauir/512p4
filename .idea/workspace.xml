@@ -16,6 +16,10 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
     <property name="nodejs_package_manager_path" value="npm" />
+    <property name="project.structure.last.edited" value="SDKs" />
+    <property name="project.structure.proportion" value="0.15" />
+    <property name="project.structure.side.proportion" value="0.2" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -68,7 +72,8 @@
       <workItem from="1631805123386" duration="6885000" />
       <workItem from="1631909869815" duration="428000" />
       <workItem from="1631910546815" duration="4242000" />
-      <workItem from="1631979138363" duration="26086000" />
+      <workItem from="1631979138363" duration="37252000" />
+      <workItem from="1632189885117" duration="10229000" />
     </task>
     <servers />
   </component>

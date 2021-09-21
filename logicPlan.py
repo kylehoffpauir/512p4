@@ -419,29 +419,34 @@ def positionLogicPlan(problem):
 
     # @ t = 0
     # add pacmanAt x0, y0 to KB
-    t = 0
-    KB.append(PropSymbolExpr(pacman_str, x0, y0, t))
-    # for t in range(50)
-    # add ExactlyOne(PacmanAt(coord in non_wall_coords)) to KB
-    # pass in the current KB (at t) and call findmodel on it
-    #   if there is a satisfying model, return extractActionSequence(model)
-    # add ExactlyOne(pacman takes an action at t) to KB
-    # add pacmanSuccessorStateAxioms() for every coord in non_wall_coords
+    KB.append(PropSymbolExpr(pacman_str, x0, y0, 0))
+    # KB wont plan a path > 50 in our tests
     for t in range(50):
+        #print(t)
         pacmanPossibleLocations = []
         moves = []
+        # add ExactlyOne(PacmanAt(coord in non_wall_coords)) to KB
         for coord in non_wall_coords:
             x, y = coord
             pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
             pacmanPossibleLocations.append(pacmanAt)
         KB.append(exactlyOne(pacmanPossibleLocations))
-        model = findModel(conjoin(KB))
-        if logic.pl_true(PropSymbolExpr(pacman_str, xg, yg, t), model):
-            return extractActionSequence(model, actions)
+
+        # pass in the current KB (at t) and call findmodel on it
+        #   if there is a satisfying model, return extractActionSequence(model)
+        goalModel = findModel(conjoin(KB) & PropSymbolExpr(pacman_str, xg, yg, t))
+        if goalModel is not False:
+            return extractActionSequence(goalModel, actions)
+
+        # add ExactlyOne(pacman takes an action at t) to KB
         for a in actions:
             moves.append(PropSymbolExpr(a, t))
         KB.append(exactlyOne(moves))
-        KB.append(pacmanSuccessorStateAxioms(x, y, t, walls))
+
+        # add pacmanSuccessorStateAxioms() for every coord in non_wall_coords
+        for coord in non_wall_coords:
+            x, y = coord
+            KB.append(pacmanSuccessorStateAxioms(x, y, t+1, walls))
 
 def foodLogicPlan(problem):
     """
@@ -605,10 +610,62 @@ def localization(problem, agent):
 
     possible_locs_by_timestep = []
     KB = []
+    # add to KB where walls are and are not
+    # if a location x y is in non_outer_wall_coords but not in walls_list, then there is not a wall at x,y
+    for coord in non_outer_wall_coords:
+        x, y = coord
+        if coord not in walls_list:
+            KB.append(~PropSymbolExpr(wall_str, x, y))
+    for coord in walls_list:
+        x, y = coord
+        KB.append(PropSymbolExpr(wall_str, x, y))
 
-    "*** BEGIN YOUR CODE HERE ***"
-    raise NotImplementedError
-    "*** END YOUR CODE HERE ***"
+    for t in range(agent.num_timesteps):
+        print("t = " + str(t))
+    #   add pacphysics_axioms to KB
+        KB.append(pacphysics_axioms(t, all_coords, non_outer_wall_coords))
+    #   add pacman takes an action in agent.actions[t] to KB
+        KB.append(PropSymbolExpr(agent.actions[t], t))
+    #   add sensorAxioms() to KB
+        KB.append(sensorAxioms(t, non_outer_wall_coords))
+    #   add the percept_rules from four_bit_percept_rules(agent.getPercepts()) to KB
+        KB.append(four_bit_percept_rules(t, agent.getPercepts()))
+        possible_locations_t = []
+        impossible_locations_t = []
+    #   use findModel and our KB to see where pacman could possibly be
+        for coord in non_outer_wall_coords:
+            x, y = coord
+            q = PropSymbolExpr(pacman_str, x, y, t)
+            model = findModel(conjoin(KB) & ~q)
+        #   if there is a satisfying assignment where pacman is at x,y @ t, add to possible_locations_t
+        #   fix this? something more to do w models per hints
+            if model is not False:
+                possible_locations_t.append(PropSymbolExpr(pacman_str, x, y, t))
+            else:
+                impossible_locations_t.append(PropSymbolExpr(pacman_str, x, y, t))
+    #   KB.append(locations where Pacman provably could be)
+        if len(possible_locations_t) > 0:
+            KB.append(conjoin(possible_locations_t))
+    #   KB.append(locations where Pacman provably is not)
+        if len(impossible_locations_t) > 0:
+            KB.append(conjoin(impossible_locations_t))
+
+        possible_locs_by_timestep.append(possible_locations_t)
+        agent.moveToNextState(agent.actions[t])
+        KB.append(allLegalSuccessorAxioms(t+1, walls_grid, non_outer_wall_coords))
+    print(possible_locs_by_timestep)
+    # autograder outoput in this form: [(3, 1), (3, 3)]
+    # following loop should conver possible_locs_by_timestep into that form from our Expr and then return that list
+    # converted_possible_locs = []
+    # for p in possible_locs_by_timestep:
+    #     parsed = parseExpr(p)
+    #     print(p)
+    #     x = (parsed[1])[0]
+    #     y = (parsed[1])[1]
+    #     coord = x,y
+    #     print("x, y = " + str(coord))
+    #     converted_possible_locs.append(coord)
+    # return converted_possible_locs
     return possible_locs_by_timestep
 
 
