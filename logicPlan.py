@@ -469,42 +469,42 @@ def foodLogicPlan(problem):
     actions = [ 'North', 'South', 'East', 'West' ]
 
     KB = []
-    # @ t = 0
-    # add pacmanAt x0, y0 to KB
+
+    "*** BEGIN YOUR CODE HERE ***"
+    # raise NotImplementedError
     KB.append(PropSymbolExpr(pacman_str, x0, y0, 0))
+
+    # for every food loc, add a sentence to our KB
     for coord in food:
         x, y = coord
         KB.append(PropSymbolExpr(food_str, x, y, 0))
-    print(food)
-    # KB wont plan a path > 50 in our tests
+
     for t in range(50):
-        #print(t)
-        pacmanPossibleLocations = []
-        moves = []
-        # add ExactlyOne(PacmanAt(coord in non_wall_coords)) to KB
-        for coord in non_wall_coords:
-            x, y = coord
-            pacmanAt = PropSymbolExpr(pacman_str, x, y, t)
-            pacmanPossibleLocations.append(pacmanAt)
-        KB.append(exactlyOne(pacmanPossibleLocations))
-
-        # pass in the current KB (at t) and call findmodel on it
-        foodList = []
+        pacman_at_possibilities = [PropSymbolExpr(pacman_str, x, y, t)
+                                   for (x,y) in non_wall_coords]
+        KB.append(exactlyOne(pacman_at_possibilities))
+        foodEatenList = []
+        # create a list of all of the food @ time t notted
         for coord in food:
-            foodList.append()
-        goalModel = findModel(conjoin(KB) & PropSymbolExpr(pacman_str, xg, yg, t))
-        if goalModel is not False:
-            return extractActionSequence(goalModel, actions)
-
-        # add ExactlyOne(pacman takes an action at t) to KB
-        for a in actions:
-            moves.append(PropSymbolExpr(a, t))
-        KB.append(exactlyOne(moves))
-
-        # add pacmanSuccessorStateAxioms() for every coord in non_wall_coords
+            x, y = coord
+            foodEatenList.append(~PropSymbolExpr(food_str, x, y, t))
+        # conjoin the list of ~ foods @ time
+        goal_assertion = conjoin(foodEatenList)
+        model = findModel(conjoin(KB) & goal_assertion)
+        if model:
+            return extractActionSequence(model, actions)
+        pacman_action_possibilities = [PropSymbolExpr(action, t) for action in DIRECTIONS]
+        KB.append(exactlyOne(pacman_action_possibilities))
         for coord in non_wall_coords:
             x, y = coord
             KB.append(pacmanSuccessorStateAxioms(x, y, t+1, walls))
+        for coord in food:
+            x, y = coord
+            #for every x, y, if pacman is there and there is a food there, then there is not a food there next step
+            KB.append((PropSymbolExpr(food_str, x, y, t) & PropSymbolExpr(pacman_str, x, y, t)) >> ~(PropSymbolExpr(food_str, x, y, t+1)))
+            KB.append((PropSymbolExpr(food_str, x, y, t) & ~PropSymbolExpr(pacman_str, x, y, t)) >> PropSymbolExpr(food_str, x, y, t+1))
+    "*** END YOUR CODE HERE ***"
+
 
 # Helpful Debug Method
 def visualize_coords(coords_list, problem):
